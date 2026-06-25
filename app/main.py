@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.rag import answer
@@ -23,3 +26,6 @@ def healthz():
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
     return answer(request.question)
+
+
+app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")

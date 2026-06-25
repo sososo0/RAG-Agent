@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Agent</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 20px;
+    background: #0f1117;
+    color: #e6e6e6;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.sub { color: #9a9a9a; margin-top: 0; font-size: 0.9rem; }
+  form { display: flex; gap: 8px; margin: 20px 0; }
+  input[type=text] {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #1a1d27;
+    color: #e6e6e6;
+    font-size: 1rem;
+  }
+  button {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    background: #5b6cff;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  button:disabled { background: #3a3f55; cursor: default; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .example {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border-radius: 14px;
+    background: #1a1d27;
+    border: 1px solid #333;
+    color: #9aa0ff;
+    cursor: pointer;
+  }
+  .card {
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 16px 18px;
+    white-space: pre-wrap;
+    line-height: 1.55;
+    min-height: 60px;
+  }
+  .sources { margin-top: 12px; font-size: 0.85rem; color: #9a9a9a; }
+  .sources span {
+    display: inline-block;
+    background: #232636;
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin: 2px 4px 2px 0;
+  }
+  .muted { color: #777; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+  <h1>📚 RAG Agent</h1>
+  <p class="sub">resilience 패턴 문서 기반 질의응답 — pgvector 검색 + Claude API 답변 생성</p>
+
+  <div class="examples">
+    <span class="example">회로 차단기 패턴이란?</span>
+    <span class="example">재시도 전략에는 뭐가 있나요?</span>
+    <span class="example">백프레셔는 어떻게 동작하나요?</span>
+    <span class="example">멱등성을 보장하는 방법은?</span>
+  </div>
+
+  <form id="form">
+    <input type="text" id="question" placeholder="문서에 대해 질문해보세요" autocomplete="off" required>
+    <button type="submit" id="submit">질문하기</button>
+  </form>
+
+  <div class="card" id="answer">왼쪽 위 예시를 눌러보거나 직접 질문을 입력하세요.</div>
+  <div class="sources" id="sources"></div>
+
+<script>
+const form = document.getElementById('form');
+const input = document.getElementById('question');
+const answerEl = document.getElementById('answer');
+const sourcesEl = document.getElementById('sources');
+const submitBtn = document.getElementById('submit');
+
+document.querySelectorAll('.example').forEach(el => {
+  el.addEventListener('click', () => {
+    input.value = el.textContent;
+    form.dispatchEvent(new Event('submit'));
+  });
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+
+  submitBtn.disabled = true;
+  answerEl.textContent = '검색 중...';
+  sourcesEl.innerHTML = '';
+
+  try {
+    const res = await fetch('/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    const data = await res.json();
+    answerEl.textContent = data.answer;
+    sourcesEl.innerHTML = data.sources.length
+      ? '출처: ' + data.sources.map(s => `<span>${s}</span>`).join('')
+      : '';
+  } catch (err) {
+    answerEl.textContent = '오류가 발생했습니다: ' + err.message;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
