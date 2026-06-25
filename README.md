@@ -2,6 +2,10 @@
 
 마크다운 문서를 검색·답변하는 RAG(Retrieval-Augmented Generation) 에이전트. 데이터 적재 파이프라인, 컨테이너화, Kubernetes 배포 매니페스트까지 한 레포에 담은 작은 포트폴리오 프로젝트입니다.
 
+## 데모
+
+https://github.com/user-attachments/assets/03e44ae5-29bd-4f56-9402-68d824e043ba
+
 ## 아키텍처
 
 처음 보는 사람도 따라올 수 있도록 "데이터가 어떻게 들어가서(①) → 어떻게 검색·답변되고(②) → 어떻게 배포되는지(③)" 한 그림으로 정리했습니다.
