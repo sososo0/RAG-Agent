@@ -82,20 +82,6 @@ kubectl apply -f k8s/app-deployment.yaml -f k8s/app-service.yaml -f k8s/hpa.yaml
 kubectl apply --dry-run=client -f k8s/
 ```
 
-## 저사양(2GB RAM) 환경에서 실행하기
-
-임베딩 모델 + cross-encoder 두 개를 같이 메모리에 올리면 앱 컨테이너가 idle 상태에서도 ~1GB를 씁니다. RAM이 2GB뿐인 인스턴스(예: t3.small)에 올릴 때는:
-
-- `RAG_RERANK_ENABLED=false` — cross-encoder reranker를 로딩하지 않습니다. 메모리 ~1GB → ~750MB로 감소(1차 pgvector 검색만 사용, 검색 품질은 약간 낮아짐).
-- `app/lite.py`가 자동으로 `torch.set_num_threads(1)` + dynamic int8 quantization을 적용합니다. quantization은 x86_64에서는 적용되고(추가로 메모리 절감), ARM(Apple Silicon 등)에서는 지원이 불안정해 자동으로 건너뜁니다.
-- 그래도 모자라면 EC2에 swap을 추가하세요. 디스크 swapfile보다는 **zram**(RAM 압축 스왑)이 ML 추론 같은 랜덤 메모리 접근 패턴에서 훨씬 덜 느려집니다.
-
-```bash
-sudo apt-get install -y zram-tools
-echo -e "ALGO=zstd\nPERCENT=100" | sudo tee /etc/default/zramswap
-sudo systemctl restart zramswap
-```
-
 ## 디렉터리 구조
 
 ```
