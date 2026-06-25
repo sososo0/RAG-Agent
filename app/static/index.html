@@ -213,6 +213,21 @@
 
   footer { margin-top: 36px; font-size: 0.78rem; color: var(--muted); text-align: center; }
   footer code { color: #b7bdff; }
+
+  .history-section { margin-top: 28px; }
+  .history-title { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+  .history-item {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .history-item:hover { border-color: var(--accent1); background: rgba(124,139,255,0.08); }
+  .history-item .q { font-size: 0.88rem; color: #e6e7f2; }
+  .history-item .meta { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -275,6 +290,11 @@
     <div class="glass card show" id="answer"><span class="placeholder">위 예시를 눌러보거나 직접 질문을 입력하세요.</span></div>
     <div class="sources" id="sources"></div>
 
+    <div class="history-section" id="historySection" style="display:none;">
+      <div class="history-title">🕘 최근 질문</div>
+      <div id="history"></div>
+    </div>
+
     <footer>FastAPI · Postgres + pgvector · sentence-transformers · Anthropic Claude API</footer>
   </div>
 
@@ -316,6 +336,54 @@ function finishPipeline() {
   setTimeout(() => pipelineEl.classList.remove('active'), 350);
 }
 
+function renderAnswer(answer, sources) {
+  answerEl.classList.remove('error');
+  answerEl.innerHTML = marked.parse(answer);
+  sourcesEl.innerHTML = sources.length
+    ? '<span class="label">출처</span>' + sources.map(s => `<span class="src">📄 ${s}</span>`).join('')
+    : '';
+  answerEl.classList.add('show');
+}
+
+const historySection = document.getElementById('historySection');
+const historyEl = document.getElementById('history');
+
+function timeAgo(iso) {
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 1000));
+  if (diffSec < 60) return '방금 전';
+  if (diffSec < 3600) return Math.floor(diffSec / 60) + '분 전';
+  if (diffSec < 86400) return Math.floor(diffSec / 3600) + '시간 전';
+  return Math.floor(diffSec / 86400) + '일 전';
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch('/history?limit=10');
+    if (!res.ok) return;
+    const items = await res.json();
+    if (!items.length) { historySection.style.display = 'none'; return; }
+
+    historySection.style.display = 'block';
+    historyEl.innerHTML = items.map((item, i) => `
+      <div class="history-item" data-index="${i}">
+        <div class="q">${item.question}</div>
+        <div class="meta">${timeAgo(item.created_at)} · ${item.sources.length}개 출처</div>
+      </div>
+    `).join('');
+
+    historyEl.querySelectorAll('.history-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const item = items[Number(el.dataset.index)];
+        input.value = item.question;
+        renderAnswer(item.answer, item.sources);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  } catch (err) {
+    // history is a nice-to-have; ignore failures silently
+  }
+}
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const question = input.value.trim();
@@ -338,19 +406,19 @@ form.addEventListener('submit', async (e) => {
     }
     const data = await res.json();
     finishPipeline();
-    answerEl.innerHTML = marked.parse(data.answer);
-    sourcesEl.innerHTML = data.sources.length
-      ? '<span class="label">출처</span>' + data.sources.map(s => `<span class="src">📄 ${s}</span>`).join('')
-      : '';
+    renderAnswer(data.answer, data.sources);
+    loadHistory();
   } catch (err) {
     finishPipeline();
     answerEl.classList.add('error');
     answerEl.textContent = '오류가 발생했습니다: ' + err.message;
-  } finally {
     answerEl.classList.add('show');
+  } finally {
     submitBtn.disabled = false;
   }
 });
+
+loadHistory();
 </script>
 </body>
 </html>

@@ -46,3 +46,26 @@ def search(query_embedding: list[float], top_k: int = 4) -> list[dict]:
         )
         columns = [desc.name for desc in cur.description]
         return [dict(zip(columns, row)) for row in cur.fetchall()]
+
+
+def log_query(question: str, answer: str, sources: list[str]) -> None:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO query_log (question, answer, sources) VALUES (%s, %s, %s)",
+            (question, answer, sources),
+        )
+
+
+def recent_queries(limit: int = 10) -> list[dict]:
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT question, answer, sources, created_at
+            FROM query_log
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        columns = [desc.name for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]
