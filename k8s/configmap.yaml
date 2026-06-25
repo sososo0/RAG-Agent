@@ -7,3 +7,6 @@ data:
   DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/ragdb"
   CLAUDE_MODEL: "claude-sonnet-4-6"
   RAG_TOP_K: "4"
+  # Cross-encoder reranking costs ~300MB extra RAM (a second model loaded in
+  # memory). Set to "false" on memory-constrained hosts (e.g. <=2GB RAM EC2).
+  RAG_RERANK_ENABLED: "true"

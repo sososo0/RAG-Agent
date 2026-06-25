@@ -9,6 +9,7 @@ from app.reranker import rerank
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 TOP_K = int(os.environ.get("RAG_TOP_K", 4))
 RERANK_CANDIDATES = int(os.environ.get("RAG_RERANK_CANDIDATES", 15))
+RERANK_ENABLED = os.environ.get("RAG_RERANK_ENABLED", "true").lower() == "true"
 
 _client: Anthropic | None = None
 
@@ -22,6 +23,8 @@ def get_client() -> Anthropic:
 
 def retrieve(question: str, top_k: int = TOP_K) -> list[dict]:
     query_embedding = embed_query(question)
+    if not RERANK_ENABLED:
+        return search(query_embedding, top_k=top_k)
     candidates = search(query_embedding, top_k=RERANK_CANDIDATES)
     return rerank(question, candidates, top_k=top_k)
 

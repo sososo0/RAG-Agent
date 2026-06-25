@@ -2,13 +2,17 @@ from functools import lru_cache
 
 from sentence_transformers import SentenceTransformer
 
+from app.lite import quantize
+
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBEDDING_DIM = 384
 
 
 @lru_cache(maxsize=1)
 def get_model() -> SentenceTransformer:
-    return SentenceTransformer(MODEL_NAME)
+    model = SentenceTransformer(MODEL_NAME)
+    model[0].auto_model = quantize(model[0].auto_model)
+    return model
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
