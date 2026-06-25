@@ -19,8 +19,9 @@ flowchart TB
         direction LR
         U["🙋 사용자 질문"] --> APP["app/main.py\nFastAPI POST /query"]
         APP -->|질문 임베딩| C
-        C -->|"유사도 top-k 검색\n(cosine, <=>)"| APP
-        APP -->|"질문 + 검색된 문서"| LLM["🤖 Anthropic\nClaude API"]
+        C -->|"1차 검색 top-15\n(cosine, <=>)"| RR["🎯 Cross-Encoder\nReranker"]
+        RR -->|"재채점 후 top-4"| APP
+        APP -->|"질문 + 재정렬된 문서"| LLM["🤖 Anthropic\nClaude API"]
         LLM -->|답변 생성| APP
         APP --> ANS["✅ 답변 + 출처 문서명"]
     end
@@ -39,7 +40,7 @@ flowchart TB
 ```
 
 - **① 데이터 엔지니어링**: `pipeline/ingest.py`가 Extract(파일 읽기) → Transform(청킹 + `sentence-transformers` 임베딩) → Load(Postgres/pgvector upsert) 3단계 배치 ETL을 idempotent하게 수행합니다(`ON CONFLICT (source, chunk_index) DO UPDATE`).
-- **② RAG 에이전트**: FastAPI 서버가 질문을 임베딩 → pgvector에서 관련 chunk 검색 → Anthropic Claude API로 컨텍스트 기반 답변 생성, 출처 파일명까지 함께 반환합니다.
+- **② RAG 에이전트**: FastAPI 서버가 질문을 임베딩 → pgvector에서 1차로 후보 15개를 검색 → cross-encoder(`mmarco-mMiniLMv2-L12-H384-v1`)가 질문-문서 쌍을 직접 재채점해 최종 top-4로 재정렬(rerank) → Anthropic Claude API로 컨텍스트 기반 답변 생성, 출처 파일명까지 함께 반환합니다. 임베딩 기반 1차 검색은 빠르지만 거리 계산이라 정밀도가 떨어지고, cross-encoder는 느리지만 질문과 문서를 함께 읽어 정밀하게 채점합니다 — 그래서 "1차로 넓게, 2차로 정밀하게" 두 단계로 구성했습니다.
 - **③ 클라우드/컨테이너**: `Dockerfile` + `docker-compose.yml`로 로컬 1-command 데모, `k8s/`에 Deployment/StatefulSet/Job/HPA/ConfigMap/Secret 매니페스트를 갖춰 실제 운영 배포 형태를 보여줍니다. `.github/workflows/ci.yml`은 lint, Docker 빌드, k8s 매니페스트 dry-run 검증을 수행합니다.
 
 > GitHub에서 이 README를 보면 위 다이어그램이 자동으로 도식(그래프 이미지)으로 렌더링됩니다(Mermaid 문법).
@@ -84,7 +85,7 @@ kubectl apply --dry-run=client -f k8s/
 ## 디렉터리 구조
 
 ```
-app/         FastAPI 서비스 (db, embeddings, rag, main)
+app/         FastAPI 서비스 (db, embeddings, reranker, rag, main)
 pipeline/    ETL 배치 적재 스크립트 (ingest.py)
 data/corpus/ 샘플 지식베이스 (회복성 패턴 문서)
 sql/         pgvector 스키마
@@ -94,4 +95,4 @@ k8s/         Kubernetes 매니페스트
 
 ## 기술 스택
 
-FastAPI · Postgres + pgvector · sentence-transformers (`all-MiniLM-L6-v2`) · Anthropic Claude API · Docker / Docker Compose · Kubernetes · GitHub Actions
+FastAPI · Postgres + pgvector · sentence-transformers (embedding: `paraphrase-multilingual-MiniLM-L12-v2`, reranking: `mmarco-mMiniLMv2-L12-H384-v1` cross-encoder) · Anthropic Claude API · Docker / Docker Compose · Kubernetes · GitHub Actions

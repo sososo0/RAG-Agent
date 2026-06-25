@@ -10,7 +10,8 @@ COPY app app
 COPY pipeline pipeline
 COPY data data
 
-RUN python -c "from app.embeddings import get_model; get_model()"
+RUN python -c "from app.embeddings import get_model; get_model()" \
+    && python -c "from app.reranker import get_reranker; get_reranker()"
 
 EXPOSE 8000
 
