@@ -64,11 +64,43 @@
     margin: 2px 4px 2px 0;
   }
   .muted { color: #777; font-size: 0.85rem; }
+  .scope {
+    background: #161927;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: #c2c4cf;
+  }
+  .scope b { color: #e6e6e6; }
+  .topics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .topic {
+    font-size: 0.78rem;
+    padding: 3px 9px;
+    border-radius: 12px;
+    background: #232636;
+    color: #9aa0ff;
+  }
 </style>
 </head>
 <body>
   <h1>📚 RAG Agent</h1>
   <p class="sub">resilience 패턴 문서 기반 질의응답 — pgvector 검색 + Claude API 답변 생성</p>
+
+  <div class="scope">
+    <b>이런 걸 물어보세요</b> — 분산 시스템 안정성(resilience) 패턴 7개 문서에 대해서만 답변할 수 있습니다.
+    문서에 없는 내용은 모른다고 답해요.
+    <div class="topics">
+      <span class="topic">재시도 전략 (Retry)</span>
+      <span class="topic">회로 차단기 (Circuit Breaker)</span>
+      <span class="topic">벌크헤드 격리 (Bulkhead)</span>
+      <span class="topic">레이트 리미팅 (Rate Limiting)</span>
+      <span class="topic">백프레셔 (Backpressure)</span>
+      <span class="topic">멱등성 (Idempotency)</span>
+      <span class="topic">큐 기반 부하 분산 (Queue-based Load Leveling)</span>
+    </div>
+  </div>
 
   <div class="examples">
     <span class="example">회로 차단기 패턴이란?</span>
