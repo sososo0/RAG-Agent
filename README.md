@@ -6,6 +6,15 @@
 
 처음 보는 사람도 따라올 수 있도록 "데이터가 어떻게 들어가서(①) → 어떻게 검색·답변되고(②) → 어떻게 배포되는지(③)" 한 그림으로 정리했습니다.
 
+![아키텍처 구성도](docs/architecture.png)
+
+- **① 데이터 엔지니어링**: `pipeline/ingest.py`가 Extract(파일 읽기) → Transform(청킹 + `sentence-transformers` 임베딩) → Load(Postgres/pgvector upsert) 3단계 배치 ETL을 idempotent하게 수행합니다(`ON CONFLICT (source, chunk_index) DO UPDATE`). 모든 질문/답변은 `query_log` 테이블에도 기록되어 나중에 다시 조회할 수 있습니다.
+- **② RAG 에이전트**: FastAPI 서버가 질문을 임베딩 → pgvector에서 1차로 후보 15개를 검색 → cross-encoder(`mmarco-mMiniLMv2-L12-H384-v1`)가 질문-문서 쌍을 직접 재채점해 최종 top-4로 재정렬(rerank) → Anthropic Claude API로 컨텍스트 기반 답변 생성, 출처 파일명까지 함께 반환합니다. 임베딩 기반 1차 검색은 빠르지만 정밀도가 떨어지고, cross-encoder는 느리지만 질문과 문서를 함께 읽어 정밀하게 채점합니다 — 그래서 "1차로 넓게, 2차로 정밀하게" 두 단계로 구성했습니다.
+- **③ 클라우드/컨테이너**: `Dockerfile` + `docker-compose.yml`로 로컬 1-command 데모, `k8s/`에 Deployment/StatefulSet/Job/HPA/ConfigMap/Secret 매니페스트를 갖춰 동일한 이미지를 실제 AWS EC2 + k3s(경량 Kubernetes)에 배포합니다. `.github/workflows/ci.yml`은 lint, Docker 빌드, k8s 매니페스트 dry-run 검증을 수행합니다.
+
+<details>
+<summary>Mermaid 소스로 보기 (GitHub에서는 아래 코드도 자동으로 그래프로 렌더링됩니다)</summary>
+
 ```mermaid
 flowchart TB
     subgraph S1["① 데이터 파이프라인 — Data Engineering"]
@@ -39,11 +48,7 @@ flowchart TB
     S2 -.운영 환경.-> S3
 ```
 
-- **① 데이터 엔지니어링**: `pipeline/ingest.py`가 Extract(파일 읽기) → Transform(청킹 + `sentence-transformers` 임베딩) → Load(Postgres/pgvector upsert) 3단계 배치 ETL을 idempotent하게 수행합니다(`ON CONFLICT (source, chunk_index) DO UPDATE`).
-- **② RAG 에이전트**: FastAPI 서버가 질문을 임베딩 → pgvector에서 1차로 후보 15개를 검색 → cross-encoder(`mmarco-mMiniLMv2-L12-H384-v1`)가 질문-문서 쌍을 직접 재채점해 최종 top-4로 재정렬(rerank) → Anthropic Claude API로 컨텍스트 기반 답변 생성, 출처 파일명까지 함께 반환합니다. 임베딩 기반 1차 검색은 빠르지만 거리 계산이라 정밀도가 떨어지고, cross-encoder는 느리지만 질문과 문서를 함께 읽어 정밀하게 채점합니다 — 그래서 "1차로 넓게, 2차로 정밀하게" 두 단계로 구성했습니다.
-- **③ 클라우드/컨테이너**: `Dockerfile` + `docker-compose.yml`로 로컬 1-command 데모, `k8s/`에 Deployment/StatefulSet/Job/HPA/ConfigMap/Secret 매니페스트를 갖춰 실제 운영 배포 형태를 보여줍니다. `.github/workflows/ci.yml`은 lint, Docker 빌드, k8s 매니페스트 dry-run 검증을 수행합니다.
-
-> GitHub에서 이 README를 보면 위 다이어그램이 자동으로 도식(그래프 이미지)으로 렌더링됩니다(Mermaid 문법).
+</details>
 
 ## 로컬 실행 (Docker Compose)
 
@@ -90,6 +95,7 @@ pipeline/    ETL 배치 적재 스크립트 (ingest.py)
 data/corpus/ 샘플 지식베이스 (회복성 패턴 문서)
 sql/         pgvector 스키마
 k8s/         Kubernetes 매니페스트
+docs/        아키텍처 구성도 이미지
 .github/     CI 워크플로
 ```
 
